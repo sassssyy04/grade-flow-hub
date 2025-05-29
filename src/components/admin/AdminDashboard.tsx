@@ -1,11 +1,12 @@
 
 import { useState } from 'react';
-import { Upload, Users, FileText, Plus } from 'lucide-react';
+import { Upload, Users, FileText, Plus, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AssignmentUpload } from './AssignmentUpload';
 import { StudentManager } from './StudentManager';
+import { UserManager } from './UserManager';
 import { Assignment, StudentProfile } from '@/types';
 
 export const AdminDashboard = () => {
@@ -40,11 +41,16 @@ export const AdminDashboard = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="assignments" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs defaultValue="users" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="assignments">Assignment Management</TabsTrigger>
-          <TabsTrigger value="students">Student Management</TabsTrigger>
+          <TabsTrigger value="students">Student Profiles</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="users">
+          <UserManager />
+        </TabsContent>
 
         <TabsContent value="assignments">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
