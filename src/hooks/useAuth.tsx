@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser({
           id: profile.id,
           email: profile.email,
-          name: profile.full_name || profile.email,
+          name: profile.email, // Use email as name since full_name doesn't exist
           role: profile.role as 'admin' | 'teacher' | 'student',
           createdAt: profile.created_at,
         });
