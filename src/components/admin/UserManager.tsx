@@ -30,51 +30,49 @@ export const UserManager = () => {
     setIsLoading(true);
 
     try {
-      // Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        user_metadata: { role },
-        email_confirm: true
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      // Call the edge function to create the user
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email,
+          password,
+          role
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
-      if (authError) {
-        throw authError;
+      if (error) {
+        throw error;
       }
 
-      if (authData.user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: authData.user.id,
-              email: authData.user.email,
-              role: role
-            }
-          ]);
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          // Don't throw here as user was created successfully
-        }
-
-        setCreatedUsers(prev => [...prev, {
-          id: authData.user.id,
-          email: authData.user.email!,
-          role: role
-        }]);
-
-        toast({
-          title: "Success",
-          description: `${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully!`,
-        });
-
-        // Reset form
-        setEmail('');
-        setPassword('');
-        setRole('student');
+      if (data.error) {
+        throw new Error(data.error);
       }
+
+      setCreatedUsers(prev => [...prev, {
+        id: data.user.id,
+        email: data.user.email,
+        role: role
+      }]);
+
+      toast({
+        title: "Success",
+        description: `${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully!`,
+      });
+
+      // Reset form
+      setEmail('');
+      setPassword('');
+      setRole('student');
+
     } catch (error: any) {
       console.error('User creation error:', error);
       toast({
