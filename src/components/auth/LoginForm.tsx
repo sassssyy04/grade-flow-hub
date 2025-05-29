@@ -4,38 +4,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { User } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from '@/components/ui/use-toast';
 
-interface LoginFormProps {
-  onLogin: (user: User) => void;
-}
-
-export const LoginForm = ({ onLogin }: LoginFormProps) => {
+export const LoginForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // Mock users for demo
-  const mockUsers: User[] = [
-    { id: '1', name: 'John Admin', email: 'admin@edu.com', role: 'admin', createdAt: '2024-01-01' },
-    { id: '2', name: 'Sarah Teacher', email: 'teacher@edu.com', role: 'teacher', createdAt: '2024-01-01' },
-    { id: '3', name: 'Mike Student', email: 'student@edu.com', role: 'student', createdAt: '2024-01-01' },
-  ];
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      const user = mockUsers.find(u => u.email === email);
-      if (user) {
-        onLogin(user);
-      } else {
-        alert('Invalid credentials. Try: admin@edu.com, teacher@edu.com, or student@edu.com');
-      }
+    try {
+      await signIn(email, password);
+      toast({
+        title: "Success",
+        description: "You have been signed in successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Invalid credentials. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -76,9 +72,9 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
           
           <div className="mt-6 text-xs text-gray-500 space-y-1">
             <p>Demo accounts:</p>
-            <p>Admin: admin@edu.com</p>
-            <p>Teacher: teacher@edu.com</p>
-            <p>Student: student@edu.com</p>
+            <p>Admin: admin@mathnasium.com</p>
+            <p>Teacher: teacher@mathnasium.com</p>
+            <p>Student: student1@mathnasium.com</p>
             <p>Password: any</p>
           </div>
         </CardContent>

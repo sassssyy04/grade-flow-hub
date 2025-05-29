@@ -1,31 +1,28 @@
 
-import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { TeacherDashboard } from '@/components/teacher/TeacherDashboard';
 import { StudentDashboard } from '@/components/student/StudentDashboard';
-import { User } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, loading, signOut } = useAuth();
 
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    console.log('User logged in:', user);
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    console.log('User logged out');
-  };
-
-  if (!currentUser) {
-    return <LoginForm onLogin={handleLogin} />;
+  if (!user) {
+    return <LoginForm />;
   }
 
   const renderDashboard = () => {
-    switch (currentUser.role) {
+    switch (user.role) {
       case 'admin':
         return <AdminDashboard />;
       case 'teacher':
@@ -39,7 +36,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={currentUser} onLogout={handleLogout} />
+      <Header user={user} onLogout={signOut} />
       {renderDashboard()}
     </div>
   );
