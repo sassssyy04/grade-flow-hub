@@ -45,6 +45,7 @@ serve(async (req) => {
     )
 
     if (authError || !user) {
+      console.error('Auth error:', authError)
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -59,6 +60,7 @@ serve(async (req) => {
       .single()
 
     if (!profile || profile.role !== 'admin') {
+      console.error('User is not admin:', { userId: user.id, role: profile?.role })
       return new Response(
         JSON.stringify({ error: 'Admin access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -75,6 +77,8 @@ serve(async (req) => {
       )
     }
 
+    console.log('Creating user:', { email, role })
+
     // Create the user
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -84,6 +88,16 @@ serve(async (req) => {
     })
 
     if (createError) {
+      console.error('User creation error:', createError)
+      
+      // Handle specific error cases
+      if (createError.message.includes('already been registered')) {
+        return new Response(
+          JSON.stringify({ error: 'A user with this email address already exists' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
       return new Response(
         JSON.stringify({ error: createError.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -91,6 +105,8 @@ serve(async (req) => {
     }
 
     if (newUser.user) {
+      console.log('User created successfully:', newUser.user.id)
+      
       // Create the profile
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
@@ -105,6 +121,9 @@ serve(async (req) => {
       if (profileError) {
         console.error('Profile creation error:', profileError)
         // Don't fail the whole operation if profile creation fails
+        // The user was still created successfully
+      } else {
+        console.log('Profile created successfully')
       }
     }
 
@@ -120,9 +139,9 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: 'Internal server error: ' + error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

@@ -37,6 +37,8 @@ export const UserManager = () => {
         throw new Error('No active session');
       }
 
+      console.log('Calling create-user function with:', { email, role });
+
       // Call the edge function to create the user
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
@@ -49,12 +51,20 @@ export const UserManager = () => {
         },
       });
 
+      console.log('Function response:', { data, error });
+
       if (error) {
+        console.error('Function invoke error:', error);
         throw error;
       }
 
-      if (data.error) {
+      if (data?.error) {
+        console.error('Function returned error:', data.error);
         throw new Error(data.error);
+      }
+
+      if (!data?.user) {
+        throw new Error('No user data returned from function');
       }
 
       setCreatedUsers(prev => [...prev, {
@@ -75,9 +85,23 @@ export const UserManager = () => {
 
     } catch (error: any) {
       console.error('User creation error:', error);
+      
+      let errorMessage = "Failed to create user account";
+      
+      // Handle specific error cases
+      if (error.message?.includes('already exists') || error.message?.includes('already been registered')) {
+        errorMessage = "A user with this email address already exists";
+      } else if (error.message?.includes('Admin access required')) {
+        errorMessage = "You need admin privileges to create users";
+      } else if (error.message?.includes('Unauthorized')) {
+        errorMessage = "Please log in to continue";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to create user account",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
