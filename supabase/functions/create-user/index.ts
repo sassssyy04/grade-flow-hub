@@ -79,12 +79,12 @@ serve(async (req) => {
 
     console.log('Creating user:', { email, role })
 
-    // Create the user
+    // Create the user with email confirmation disabled for admin-created users
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       user_metadata: { role },
-      email_confirm: true
+      email_confirm: true // Admin-created users are auto-confirmed
     })
 
     if (createError) {
@@ -107,35 +107,50 @@ serve(async (req) => {
     if (newUser.user) {
       console.log('User created successfully:', newUser.user.id)
       
-      // Create the profile
-      const { error: profileError } = await supabaseAdmin
+      // Create the profile record explicitly to ensure it exists
+      const { data: profileData, error: profileError } = await supabaseAdmin
         .from('profiles')
-        .insert([
+        .upsert([
           {
             id: newUser.user.id,
             email: newUser.user.email,
-            role: role
+            role: role,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           }
         ])
+        .select()
+        .single()
 
       if (profileError) {
         console.error('Profile creation error:', profileError)
-        // Don't fail the whole operation if profile creation fails
-        // The user was still created successfully
+        // Still return success since the user was created, but log the profile error
+        console.log('User created but profile creation failed - this may be handled by trigger')
       } else {
-        console.log('Profile created successfully')
+        console.log('Profile created successfully:', profileData)
       }
+
+      // Return the complete user information
+      return new Response(
+        JSON.stringify({ 
+          user: {
+            id: newUser.user.id,
+            email: newUser.user.email,
+            role: role,
+            created_at: newUser.user.created_at
+          },
+          message: 'User created successfully' 
+        }),
+        { 
+          status: 200, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
     return new Response(
-      JSON.stringify({ 
-        user: newUser.user,
-        message: 'User created successfully' 
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ error: 'Failed to create user' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
