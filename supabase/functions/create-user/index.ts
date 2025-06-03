@@ -107,27 +107,47 @@ serve(async (req) => {
     if (newUser.user) {
       console.log('User created successfully:', newUser.user.id)
       
-      // Create the profile record explicitly to ensure it exists
-      const { data: profileData, error: profileError } = await supabaseAdmin
+      // Wait a moment for the trigger to potentially create the profile
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Check if profile already exists from trigger
+      const { data: existingProfile } = await supabaseAdmin
         .from('profiles')
-        .upsert([
-          {
+        .select('*')
+        .eq('id', newUser.user.id)
+        .single()
+
+      if (!existingProfile) {
+        console.log('No profile found from trigger, creating manually...')
+        
+        // Create the profile record explicitly using service role (bypasses RLS)
+        const { data: profileData, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .insert({
             id: newUser.user.id,
             email: newUser.user.email,
             role: role,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          }
-        ])
-        .select()
-        .single()
+          })
+          .select()
+          .single()
 
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        // Still return success since the user was created, but log the profile error
-        console.log('User created but profile creation failed - this may be handled by trigger')
+        if (profileError) {
+          console.error('Manual profile creation error:', profileError)
+          
+          // If profile creation fails, delete the user to maintain consistency
+          await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+          
+          return new Response(
+            JSON.stringify({ error: 'Failed to create user profile: ' + profileError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        } else {
+          console.log('Profile created manually:', profileData)
+        }
       } else {
-        console.log('Profile created successfully:', profileData)
+        console.log('Profile already exists from trigger:', existingProfile)
       }
 
       // Return the complete user information
