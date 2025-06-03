@@ -114,48 +114,32 @@ serve(async (req) => {
     if (newUser.user) {
       console.log('User created successfully:', newUser.user.id)
       
-      // Wait a moment for the trigger to potentially create the profile
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      // Check if profile already exists from trigger
-      const { data: existingProfile } = await supabaseAdmin
+      // Create the profile record first using service role (bypasses RLS)
+      const { data: profileData, error: profileError } = await supabaseAdmin
         .from('profiles')
-        .select('*')
-        .eq('id', newUser.user.id)
+        .insert({
+          id: newUser.user.id,
+          email: newUser.user.email,
+          role: role,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
         .single()
 
-      if (!existingProfile) {
-        console.log('No profile found from trigger, creating manually...')
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
         
-        // Create the profile record explicitly using service role (bypasses RLS)
-        const { data: profileData, error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .insert({
-            id: newUser.user.id,
-            email: newUser.user.email,
-            role: role,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .select()
-          .single()
-
-        if (profileError) {
-          console.error('Manual profile creation error:', profileError)
-          
-          // If profile creation fails, delete the user to maintain consistency
-          await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
-          
-          return new Response(
-            JSON.stringify({ error: 'Failed to create user profile: ' + profileError.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          )
-        } else {
-          console.log('Profile created manually:', profileData)
-        }
-      } else {
-        console.log('Profile already exists from trigger:', existingProfile)
+        // If profile creation fails, delete the user to maintain consistency
+        await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+        
+        return new Response(
+          JSON.stringify({ error: 'Failed to create user profile: ' + profileError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
+      
+      console.log('Profile created:', profileData)
 
       // Create role-specific record (student or teacher)
       try {
