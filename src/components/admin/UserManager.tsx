@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { UserPlus, Users, Mail, Lock } from 'lucide-react';
+import { UserPlus, Users, Mail, Lock, GraduationCap, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -75,7 +75,7 @@ export const UserManager = () => {
 
       toast({
         title: "Success",
-        description: `${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully!`,
+        description: data.message || `${role.charAt(0).toUpperCase() + role.slice(1)} account created successfully!`,
       });
 
       // Reset form
@@ -117,7 +117,7 @@ export const UserManager = () => {
             <UserPlus className="h-5 w-5" />
             <span>Create New User</span>
           </CardTitle>
-          <CardDescription>Create new teacher or student accounts</CardDescription>
+          <CardDescription>Create new teacher or student accounts with dedicated profiles</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreateUser} className="space-y-4">
@@ -155,20 +155,30 @@ export const UserManager = () => {
             </div>
 
             <div>
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="role">User Type</Label>
               <Select value={role} onValueChange={(value: 'teacher' | 'student') => setRole(value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue placeholder="Select user type" />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="student">
+                    <div className="flex items-center space-x-2">
+                      <GraduationCap className="h-4 w-4" />
+                      <span>Student</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="teacher">
+                    <div className="flex items-center space-x-2">
+                      <BookOpen className="h-4 w-4" />
+                      <span>Teacher</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating...' : 'Create User Account'}
+              {isLoading ? 'Creating...' : `Create ${role.charAt(0).toUpperCase() + role.slice(1)} Account`}
             </Button>
           </form>
         </CardContent>
@@ -180,7 +190,7 @@ export const UserManager = () => {
             <Users className="h-5 w-5" />
             <span>Recently Created Users</span>
           </CardTitle>
-          <CardDescription>Users created in this session</CardDescription>
+          <CardDescription>Users created in this session with their dedicated profiles</CardDescription>
         </CardHeader>
         <CardContent>
           {createdUsers.length === 0 ? (
@@ -192,7 +202,14 @@ export const UserManager = () => {
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="font-medium">{user.email}</h3>
-                      <p className="text-sm text-gray-600 capitalize">{user.role}</p>
+                      <div className="flex items-center space-x-1 text-sm text-gray-600">
+                        {user.role === 'student' ? (
+                          <GraduationCap className="h-3 w-3" />
+                        ) : (
+                          <BookOpen className="h-3 w-3" />
+                        )}
+                        <span className="capitalize">{user.role}</span>
+                      </div>
                     </div>
                     <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                       Created

@@ -39,3 +39,23 @@ export interface StudentProfile {
   parentEmail?: string;
   createdAt: string;
 }
+
+export interface Student {
+  id: string;
+  user_id: string;
+  grade?: string;
+  parent_email?: string;
+  subjects: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Teacher {
+  id: string;
+  user_id: string;
+  subjects: string[];
+  department?: string;
+  hire_date?: string;
+  created_at: string;
+  updated_at: string;
+}
