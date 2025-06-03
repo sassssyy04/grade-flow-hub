@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
 import { Assignment } from '@/types';
 
 interface AssignmentUploadProps {
@@ -15,8 +17,8 @@ interface AssignmentUploadProps {
 export const AssignmentUpload = ({ onUpload }: AssignmentUploadProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [subject, setSubject] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [totalPoints, setTotalPoints] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -25,30 +27,93 @@ export const AssignmentUpload = ({ onUpload }: AssignmentUploadProps) => {
     if (selectedFile && selectedFile.type === 'application/pdf') {
       setFile(selectedFile);
     } else {
-      alert('Please select a PDF file');
+      toast({
+        title: "Error",
+        description: "Please select a PDF file",
+        variant: "destructive",
+      });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !title || !description || !dueDate || !totalPoints) {
-      alert('Please fill all fields and select a PDF file');
+    if (!file || !title || !description || !subject || !dueDate) {
+      toast({
+        title: "Error",
+        description: "Please fill all fields and select a PDF file",
+        variant: "destructive",
+      });
       return;
     }
 
     setIsUploading(true);
     
-    // Simulate file upload
-    setTimeout(() => {
+    try {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      console.log('Uploading assignment file...');
+
+      // Upload file to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+      const filePath = `assignments/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('assignments')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('File upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('File uploaded successfully:', uploadData.path);
+
+      // Get the public URL for the uploaded file
+      const { data: urlData } = supabase.storage
+        .from('assignments')
+        .getPublicUrl(uploadData.path);
+
+      console.log('Creating assignment record...');
+
+      // Create assignment record in database
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('assignments')
+        .insert([
+          {
+            title,
+            description,
+            subject,
+            due_date: dueDate,
+            teacher_id: session.user.id,
+            file_path: uploadData.path
+          }
+        ])
+        .select()
+        .single();
+
+      if (assignmentError) {
+        console.error('Assignment creation error:', assignmentError);
+        throw assignmentError;
+      }
+
+      console.log('Assignment created successfully:', assignmentData);
+
+      // Create assignment object for the callback
       const assignment: Assignment = {
-        id: Date.now().toString(),
-        title,
-        description,
-        pdfUrl: URL.createObjectURL(file),
-        createdBy: 'admin',
-        createdAt: new Date().toISOString(),
-        dueDate,
-        totalPoints: parseInt(totalPoints),
+        id: assignmentData.id,
+        title: assignmentData.title,
+        description: assignmentData.description,
+        pdfUrl: urlData.publicUrl,
+        createdBy: session.user.id,
+        createdAt: assignmentData.created_at,
+        dueDate: assignmentData.due_date,
+        totalPoints: 100, // Default value since it's not in the form
       };
 
       onUpload(assignment);
@@ -56,13 +121,36 @@ export const AssignmentUpload = ({ onUpload }: AssignmentUploadProps) => {
       // Reset form
       setTitle('');
       setDescription('');
+      setSubject('');
       setDueDate('');
-      setTotalPoints('');
       setFile(null);
-      setIsUploading(false);
       
-      alert('Assignment uploaded successfully!');
-    }, 1500);
+      toast({
+        title: "Success",
+        description: "Assignment uploaded successfully!",
+      });
+
+    } catch (error: any) {
+      console.error('Assignment upload error:', error);
+      
+      let errorMessage = "Failed to upload assignment";
+      
+      if (error.message?.includes('Admin access required')) {
+        errorMessage = "You need admin privileges to upload assignments";
+      } else if (error.message?.includes('Unauthorized')) {
+        errorMessage = "Please log in to continue";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -98,29 +186,27 @@ export const AssignmentUpload = ({ onUpload }: AssignmentUploadProps) => {
               required
             />
           </div>
+
+          <div>
+            <Label htmlFor="subject">Subject</Label>
+            <Input
+              id="subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Enter subject (e.g., Math, English, Science)"
+              required
+            />
+          </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="dueDate">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="totalPoints">Total Points</Label>
-              <Input
-                id="totalPoints"
-                type="number"
-                value={totalPoints}
-                onChange={(e) => setTotalPoints(e.target.value)}
-                placeholder="100"
-                required
-              />
-            </div>
+          <div>
+            <Label htmlFor="dueDate">Due Date</Label>
+            <Input
+              id="dueDate"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              required
+            />
           </div>
           
           <div>
